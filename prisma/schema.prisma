@@ -13,9 +13,18 @@ datasource db {
   url      = "postgresql://postgres:123456789@localhost:5432/tododb"
 }
 
+model User {
+  id       Int    @id @default(autoincrement())
+  username String @unique
+  password String
+  todos    Todo[]
+}
+
 model Todo {
   id        Int      @id @default(autoincrement())
   title     String
   completed Boolean  @default(false)
   createdAt DateTime @default(now())
+  userId    Int?
+  user      User?    @relation(fields: [userId], references: [id])
 }
