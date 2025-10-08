@@ -21,17 +21,18 @@ fastify.decorate("authenticate", async function (request, reply) {
 // REgisterr
 fastify.post('/register', async (request, reply) => {
     const { username, password } = request.body
-
+    // Check nếu user or pass rỗng
     if (!username || !password) {
         return reply.status(400).send({ message: 'Missing username or password' })
     }
-
+    // Dùng Prisma Check username đã exist chưa
     const existing = await prisma.user.findUnique({ where: { username } })
     if (existing) {
         return reply.status(400).send({ message: 'User already exists' })
     }
-
+    // Băm password này 10 lần
     const hashed = await bcrypt.hash(password, 10)
+    // DÙng Prisma Create user mới 
     const user = await prisma.user.create({
         data: { username, password: hashed }
     })
@@ -42,23 +43,23 @@ fastify.post('/register', async (request, reply) => {
 // LOgin
 fastify.post('/login', async (request, reply) => {
     const { username, password } = request.body
-
+    // DÙng Prisma check username có exist trong DB không
     const user = await prisma.user.findUnique({ where: { username } })
     if (!user) return reply.status(400).send({ message: 'Invalid username or password' })
-
+    // COmpare password
     const valid = await bcrypt.compare(password, user.password)
     if (!valid) return reply.status(400).send({ message: 'Invalid username or password' })
-
     // Tạo JWT token
     const token = fastify.jwt.sign({ id: user.id, username: user.username })
     return reply.send({ token })
 })
 
 // Chỉ user login mới được truy cập
+// Check token trong header 
 fastify.post('/todos', { preValidation: [fastify.authenticate] }, async (request, reply) => {
     const { title } = request.body
     const userId = request.user.id // Lấy userId từ token
-
+    // Tạo mới todo
     try {
         const todo = await prisma.todo.create({
             data: { title, userId }
@@ -72,6 +73,7 @@ fastify.post('/todos', { preValidation: [fastify.authenticate] }, async (request
 
 // GET todo (chỉ todo của user đang đăng nhập)
 fastify.get('/todos', { preValidation: [fastify.authenticate] }, async (request, reply) => {
+    // TÌm lấy tất todo của user hiện tại
     try {
         const todos = await prisma.todo.findMany({
             where: { userId: request.user.id },
@@ -92,6 +94,7 @@ fastify.put('/todos/:id', { preValidation: [fastify.authenticate] }, async (requ
 
     try {
         const todo = await prisma.todo.updateMany({
+            // Codition: id phải đúng với id todo và userid
             where: { id: parseInt(id), userId },
             data: { completed },
         })
@@ -113,6 +116,7 @@ fastify.delete('/todos/:id', { preValidation: [fastify.authenticate] }, async (r
 
     try {
         const deleted = await prisma.todo.deleteMany({
+            // Codition: id phải đúng với id todo và userid
             where: { id: parseInt(id), userId },
         })
 
@@ -129,7 +133,7 @@ fastify.delete('/todos/:id', { preValidation: [fastify.authenticate] }, async (r
 const start = async () => {
     try {
         await fastify.listen({ port: 3000 })
-        console.log('🚀 Server is running at http://localhost:3000')
+        console.log('Server is running at http://localhost:3000')
     } catch (err) {
         fastify.log.error(err)
         process.exit(1)
